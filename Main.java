@@ -1,6 +1,3 @@
-package com.example.testcallchrome;
-
-import org.apache.commons.lang3.StringUtils;
 import org.apache.poi.hssf.usermodel.HSSFCellStyle;
 import org.apache.poi.hssf.usermodel.HSSFRow;
 import org.apache.poi.hssf.usermodel.HSSFSheet;
@@ -26,10 +23,16 @@ import static com.codeborne.selenide.Selenide.sleep;
 public class MainPage {
 
     public static void main(String[] args) {
-        System.setProperty("webdriver.chrome.driver", "chromedriver.exe");
+        if (isWindows()) {
+            System.setProperty("webdriver.chrome.driver", "chromedriver.exe");
+        } else {
+            System.setProperty("webdriver.chrome.driver", "chromedriver");
+        }
 
         ChromeOptions chromeOptions =  new ChromeOptions();
-        chromeOptions.addArguments("user-data-dir=C:/Users/yang/AppData/Local/Google/Chrome/User Data/Default");
+        if (isWindows()) {
+            chromeOptions.addArguments("user-data-dir=C:/Users/yang/AppData/Local/Google/Chrome/User Data/Default");
+        }
 
         WebDriver webDriver = new ChromeDriver(chromeOptions);
 
@@ -100,8 +103,10 @@ public class MainPage {
                 webDriver.close();
             }
         }
+    }
 
-
+    static boolean isWindows() {
+        return System.getProperties().getProperty("os.name").toUpperCase().contains("WINDOWS");
     }
 
     static void startProcess(WebDriver webDriver, String schoolName, String schoolIndex) {
@@ -171,7 +176,7 @@ public class MainPage {
                         }
                         System.out.println("");
 
-                        if (dd.stream().allMatch(StringUtils::isEmpty)) {
+                        if (dd.stream().allMatch(String::isEmpty)) {
                             // remove empty
                             continue;
                         }
