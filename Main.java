@@ -1,3 +1,5 @@
+package com.example.testcallchrome;
+
 import org.apache.poi.hssf.usermodel.HSSFCellStyle;
 import org.apache.poi.hssf.usermodel.HSSFRow;
 import org.apache.poi.hssf.usermodel.HSSFSheet;
@@ -17,33 +19,34 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static com.codeborne.selenide.Selenide.sleep;
 
 public class MainPage {
 
-    public static void main(String[] args) {
-        if (isWindows()) {
-            System.setProperty("webdriver.chrome.driver", "chromedriver.exe");
-        } else {
-            System.setProperty("webdriver.chrome.driver", "chromedriver");
-        }
-
-        ChromeOptions chromeOptions =  new ChromeOptions();
-        if (isWindows()) {
-            chromeOptions.addArguments("user-data-dir=C:/Users/yang/AppData/Local/Google/Chrome/User Data/Default");
-        }
-
-        WebDriver webDriver = new ChromeDriver(chromeOptions);
-
-        webDriver.get("https://www.gaokao.cn/school/search");
-
-        while (true) {
+    public static void checkLogin(WebDriver webDriver) {
+        boolean login = false;
+        while (!login) {
             WebElement loginBtn = null;
             try {
                 loginBtn = webDriver.findElement(By.cssSelector("div.nologin.float_r.cancle_select_bg"));
+                System.out.println("未登录...");
             } catch (Exception e) {
-                e.printStackTrace();
+
+            }
+
+            try {
+                WebElement userInfo = webDriver.findElement(By.cssSelector("div.header_wrap > div.lmzHeader > div > div.person_msg.float_r > span:nth-child(1)"));
+                if (userInfo != null && !userInfo.getText().isEmpty()) {
+                    System.out.println("已登录...");
+                    login = true;
+                } else {
+                    System.out.println("登录状态未知...");
+                    login = true;
+                }
+            } catch (Exception e) {
+
             }
 
             if (loginBtn != null) {
@@ -52,57 +55,78 @@ public class MainPage {
                 } catch (Exception e) {
                 }
                 sleep(5000);
-            } else {
-                // start process
-                // get school list
+            }
 
-                while (true) {
-                    int processCnt = 0;
-                    List<WebElement> schoolTrList = webDriver.findElements(By.cssSelector("#myTable > tbody > tr"));
-                    for (WebElement schoolTr : schoolTrList) {
-                        WebElement schoolIcon = schoolTr.findElement(By.cssSelector("td.school-icon > a > img"));
-                        WebElement schoolName = schoolTr.findElement(By.cssSelector("td.name-des > div.top-item > a > span.float_l.set_hoverl.am_l"));
-                        String schoolHref = schoolIcon.getAttribute("src");
-                        String schoolNameStr = schoolName.getText();
-                        String schoolIndex = schoolHref.substring(schoolHref.lastIndexOf("/") + 1, schoolHref.lastIndexOf("."));
-                        System.out.println(schoolIndex + "_" + schoolNameStr);
+            sleep(1000);
+        }
+    }
 
-                        if (Files.exists(Path.of(schoolNameStr + ".xls"))) {
-                            System.out.println("file exist " + Path.of(schoolNameStr + ".xls"));
-                            continue;
-                        }
+    public static void main(String[] args) {
+        if (isWindows()) {
+            System.setProperty("webdriver.chrome.driver", "chromedriver.exe");
+        } else {
+            System.setProperty("webdriver.chrome.driver", "chromedriver");
+        }
 
-                        startProcess(webDriver, schoolNameStr, schoolIndex);
-                        processCnt ++;
-                        break;
-                    }
+        ChromeOptions chromeOptions = new ChromeOptions();
 
-                    if (!"https://www.gaokao.cn/school/search".equals(webDriver.getCurrentUrl())) {
-                        webDriver.get("https://www.gaokao.cn/school/search");
-                        sleep(100);
-                    }
+        String username = System.getProperty("user.name");
+        System.out.println("=======================");
+        System.out.println("hello " + username);
+        System.out.println("=======================");
 
-                    WebElement nextPageBtn = null;
-                    try {
-                        nextPageBtn = webDriver.findElement(By.cssSelector("#root i.anticon.anticon-right"));
-                    } catch (Exception e) {
+        if (isWindows()) {
+            chromeOptions.addArguments("user-data-dir=C:/Users/" + username + "/AppData/Local/Google/Chrome/User Data/Default");
+        } else {
+            chromeOptions.addArguments("user-data-dir=/Users/" + username + "/Library/Application Support/Google/Chrome/");
 
-                    }
+        }
 
-                    if (nextPageBtn != null) {
-                        if (processCnt == 0) {
-                            nextPageBtn.click();
-                            processCnt = 0;
-                            sleep(120);
-                        }
-                    } else {
-                        break;
-                    }
+        WebDriver webDriver = new ChromeDriver(chromeOptions);
+
+        while (true) {
+            webDriver.get("https://www.gaokao.cn/school/search");
+            System.out.println("加载首页...");
+            sleep(1000);
+
+            checkLogin(webDriver);
+
+            // start process
+            // get school list
+
+            int processCnt = 0;
+
+            List<WebElement> schoolTrList = webDriver.findElements(By.cssSelector("#myTable > tbody > tr"));
+            for (WebElement schoolTr : schoolTrList) {
+                WebElement schoolIcon = schoolTr.findElement(By.cssSelector("td.school-icon > a > img"));
+                WebElement schoolName = schoolTr.findElement(By.cssSelector("td.name-des > div.top-item > a > span.float_l.set_hoverl.am_l"));
+                String schoolHref = schoolIcon.getAttribute("src");
+                String schoolNameStr = schoolName.getText();
+                String schoolIndex = schoolHref.substring(schoolHref.lastIndexOf("/") + 1, schoolHref.lastIndexOf("."));
+                System.out.println(schoolIndex + "_" + schoolNameStr);
+
+                if (Files.exists(Path.of(schoolNameStr + ".xls"))) {
+                    System.out.println("file exist " + Path.of(schoolNameStr + ".xls"));
+                    continue;
                 }
 
-                webDriver.close();
+                startProcess(webDriver, schoolNameStr, schoolIndex);
+                processCnt++;
+                break;
+            }
+
+            if (processCnt == 0) {
+                try {
+                    WebElement nextPageBtn = webDriver.findElement(By.cssSelector("#root i.anticon.anticon-right"));
+                    nextPageBtn.click();
+                } catch (Exception e) {
+                    System.out.println("no data end...");
+                    break;
+                }
             }
         }
+
+        webDriver.close();
     }
 
     static boolean isWindows() {
@@ -111,14 +135,20 @@ public class MainPage {
 
     static void startProcess(WebDriver webDriver, String schoolName, String schoolIndex) {
         webDriver.get("https://gkcx.eol.cn/school/" + schoolIndex + "/provinceline");
-        sleep(200);
+        sleep(300);
         String title = webDriver.getTitle();
         //let childCount = document.querySelector("#b5776711-83dc-4f80-84ad-171e94a4f5bf > ul").childElementCount;
 
-        // #scoreline > div.content-top.content_top_1_4 > div > div:nth-child(1) > div > div > div > div
+        //
+
+        List<WebElement> dropDownList = webDriver.findElements(By.cssSelector("#scoreline > div.content-top.content_top_1_4 > div.scoreLine-dropDown > div.dropdown-box"));
+
         WebElement provinceElement = webDriver.findElement(By.cssSelector("#scoreline > div.content-top.content_top_1_4 > div > div:nth-child(1) > div > div > div > div"));
+        sleep(50);
         provinceElement.click();
-        sleep(120);
+        sleep(150);
+
+        checkLogin(webDriver);
 
 //        WebElement element2 = webDriver.findElement(By.cssSelector("#scoreline > div.content-top.content_top_1_4 > div > div:nth-child(2)"));
 //        element2.click();
@@ -128,6 +158,7 @@ public class MainPage {
 
         Data data = new Data();
         data.school = schoolName;
+        data.tableTitle = dropDownList.stream().map(WebElement::getText).collect(Collectors.joining("-"));
 
         Map<String, List<List<String>>> datas = new LinkedHashMap<>();
         data.datas = datas;
@@ -135,10 +166,11 @@ public class MainPage {
         for (int i = 0; i < provinceList.size(); ) {
             try {
                 WebElement province = provinceList.get(i);
+                sleep(50);
                 provinceElement.click();
-                sleep(120);
+                sleep(180);
                 province.click();
-                sleep(200);
+                sleep(220);
 
                 System.out.println("=============" + provinceElement.getText() + "=============");
                 List<List<String>> d = new ArrayList<>();
@@ -168,7 +200,11 @@ public class MainPage {
                         List<String> dd = new ArrayList<>();
 
                         WebElement tr = trs.get(j);
-                        List<WebElement> tds = tr.findElements(By.cssSelector("td"));
+                        List<WebElement> tds = new ArrayList<>();
+                        try {
+                            tds = tr.findElements(By.cssSelector("td"));
+                        } catch (Exception e) {
+                        }
                         for (int k = 0; k < tds.size(); k++) {
                             System.out.print(tds.get(k).getText());
                             System.out.print("\t");
@@ -187,8 +223,9 @@ public class MainPage {
                     if (nextPage == null || nextPage.getAttribute("class").contains("ant-pagination-disabled")) {
                         break;
                     } else {
+                        sleep(50);
                         nextPage.click();
-                        sleep(120);
+                        sleep(150);
                     }
                 }
             } catch (Exception e) {
@@ -203,6 +240,7 @@ public class MainPage {
     }
 
     static class Data {
+        String tableTitle;
         String school;
         Map<String, List<List<String>>> datas;
     }
@@ -218,14 +256,18 @@ public class MainPage {
         }
 
         HSSFWorkbook workbook = new HSSFWorkbook();
+        HSSFSheet sheet = workbook.createSheet(data.school);
+
         data.datas.forEach((province, datas) -> {
-            HSSFSheet sheet = workbook.createSheet(province);
+            HSSFRow nameRow = sheet.createRow(sheet.getLastRowNum() + 1);
+            nameRow.createCell(0).setCellValue(province + " " + data.tableTitle);
+
             for (int i = 0; i < datas.size(); i++) {
                 List<String> d = datas.get(i);
                 if (d.isEmpty()) {
                     continue;
                 }
-                HSSFRow row = sheet.createRow(i);
+                HSSFRow row = sheet.createRow(sheet.getLastRowNum() + 1);
                 if (i == 0) {
                     HSSFCellStyle style = workbook.createCellStyle();
                     style.setFillBackgroundColor(HSSFColor.HSSFColorPredefined.LIGHT_BLUE.getIndex());
@@ -236,19 +278,19 @@ public class MainPage {
                     row.createCell(j).setCellValue(d.get(j));
                 }
             }
-        });
 
-//        //auto column width 自适应列宽
-//        HSSFRow row = workbook.getSheetAt(0).getRow(0);
-//        for (int colNum = 0; colNum < row.getLastCellNum(); colNum++) {
-//            workbook.getSheetAt(0).autoSizeColumn(colNum);
-//        }
+            HSSFRow endRow = sheet.createRow(sheet.getLastRowNum() + 1);
+            endRow.createCell(0).setCellValue("");
+            endRow = sheet.createRow(sheet.getLastRowNum() + 1);
+            endRow.createCell(0).setCellValue("");
+        });
 
         try {
             FileOutputStream fileOut = new FileOutputStream(file);
             workbook.write(fileOut);
             fileOut.close();
             workbook.close();
+            System.out.println("保存excel success！");
         } catch (Exception e) {
             e.printStackTrace();
         }
